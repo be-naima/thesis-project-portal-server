@@ -5,7 +5,7 @@ const { MongoClient, ServerApiVersion } = require('mongodb');
 require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 5000;
-
+const { ObjectId } = require('mongodb');
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -29,6 +29,16 @@ async function run() {
     // Student Details Collection
     const studentCollection = client.db('ThisisProject_Portal').collection('student_details');
 
+    // Instructor Details Collection
+    const instructorCollection = client.db('ThisisProject_Portal').collection('instructor_details');
+
+    // Thesis Details Collection
+
+    const thesisCollection = client.db('ThisisProject_Portal').collection('thesis_details');
+
+
+
+    ///Student 
     // Get all student details
     app.get('/student_details', async (req, res) => {
       const cursor = studentCollection.find();
@@ -84,6 +94,206 @@ async function run() {
         res.status(500).send({ message: 'Error updating profile' });
       }
     });
+
+
+    ////Instructor
+    // Get all instructor details
+    app.get('/instructor_details', async (req, res) => {
+      const cursor = instructorCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+    // Get each instructor detail by _id
+    app.get('/instructor_details/:_id', async (req, res) => {
+      const instructorId = req.params._id;
+      try {
+        const instructor = await instructorCollection.findOne({ _id: new ObjectId(instructorId) });
+        if (instructor) {
+          res.send(instructor);
+        } else {
+          res.status(404).send({ message: "instructor not found" });
+        }
+      } catch (error) {
+        res.status(500).send({ message: "Error retrieving instructor details", error });
+      }
+    });
+
+    // Update instructor details by _id
+    app.put('/instructor_details/:_id', upload.single('img'), async (req, res) => {
+      const instructorId = new ObjectId(req.params._id);
+      const { name, phone, email } = req.body;
+
+      try {
+        const imgBuffer = req.file ? req.file.buffer : null;
+
+        const updateData = {
+          name,
+          phone,
+          email,
+        };
+
+        if (imgBuffer) {
+          updateData.img = imgBuffer;
+        }
+
+        const result = await instructorCollection.updateOne(
+          { _id: instructorId },
+          { $set: updateData }
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ message: 'Instructor not found' });
+        }
+
+        res.send({ message: 'Profile updated successfully', modifiedCount: result.modifiedCount });
+      } catch (error) {
+        console.error('Error updating instructor profile:', error);
+        res.status(500).send({ message: 'Error updating profile' });
+      }
+    });
+
+
+    //add team member
+    app.post('/add-member', async (req, res) => {
+      const { email, email2, ownerId } = req.body;
+      console.log(email2)
+
+      // student details by email 
+      const student = await studentCollection.findOne({ email: email });
+      const student2 = await studentCollection.findOne({ email: email2 });
+
+      const adminStudent = await studentCollection.findOne({ student_id: ownerId });
+      if (!student) {
+        return res.status(404).json({ message: 'Student not found' });
+      }
+
+
+      const team = await thesisCollection.findOne({ id: ownerId });
+
+      if (!team) {
+
+        const teamCount = await thesisCollection.countDocuments();
+        const newTeamId = `T${teamCount + 1}`;
+
+        const studentIds = [adminStudent.student_id,student.student_id];
+        const studentNames = [adminStudent.name,student.name];
+
+        if (student2?.student_id) {
+          studentIds.push(student2.student_id);
+          studentNames.push(student2.name)
+        }
+        await thesisCollection.insertOne({
+
+          team: newTeamId,
+          title: null,
+          abstract: null,
+          student_ids: studentIds,
+          student_name: studentNames,
+          supervisor: null,
+          defence: null,
+          completed: false,
+          type: null,
+          dept: null,
+          year_of_Completion: null,
+          area_of_research: null,
+          proposal_board: null,
+          proposal_date: null,
+          proposal_status: null,
+          pre_defense_board: null,
+          pre_defense_date: null,
+          pre_defense_status: null,
+          defense_board: null,
+          defense_date: null,
+          defense_status: null,
+        });
+        return res.json({ message: 'Team created and student added successfully', student_id: student.student_id });
+      }
+
+      const updateResult = await thesisCollection.updateOne(
+        { id: ownerId },
+        {
+          $addToSet: {
+            student_ids: student.student_id,
+            student_name: student.name,
+          }
+        }
+      );
+
+      if (updateResult.modifiedCount > 0) {
+        res.json({ message: 'Student added successfully', student_id: student.student_id });
+      } else {
+        res.status(400).json({ message: 'Failed to add student or student already exists in the team' });
+      }
+    });
+
+
+
+    //remove team member
+    app.delete('/remove-member', async (req, res) => {
+      const { team, memberId, index } = req.body;
+      console.log(team, memberId, index);
+
+      try {
+        
+        const teamDocument = await thesisCollection.findOne({ team: team });
+
+        if (!teamDocument) {
+          return res.status(404).json({ message: "Team not found." });
+        }
+
+        
+        const updateResult = await thesisCollection.updateOne(
+          { team: team },
+          {
+            $pull: { student_ids: memberId }
+          }
+        );
+
+        if (updateResult.modifiedCount > 0) {
+          
+          if (teamDocument.student_name && index >= 0 && index < teamDocument.student_name.length) {
+            teamDocument.student_name.splice(index, 1);
+
+        
+            await thesisCollection.updateOne(
+              { team: team },
+              { $set: { student_name: teamDocument.student_name } }
+            );
+          }
+
+          res.json({ message: "Member removed successfully." });
+        } else {
+          res.status(400).json({ message: "Member not found or already removed." });
+        }
+      } catch (error) {
+        console.error("Error removing member:", error);
+        res.status(500).json({ message: "Error removing member." });
+      }
+    });
+
+
+
+    //find each student_id thesis details 
+    app.get('/thesis_details/:studentId', async (req, res) => {
+      const { studentId } = req.params; 
+
+      try {
+        
+        const cursor = thesisCollection.find({ student_ids: studentId });
+        const result = await cursor.toArray();
+
+        if (result.length > 0) {
+          res.send(result); 
+        } else {
+          res.status(404).json({ message: 'No thesis data found for this student ID.' });
+        }
+      } catch (error) {
+        console.error("Error fetching thesis data:", error);
+        res.status(500).json({ message: "Error fetching thesis data." });
+      }
+    });
+    
+
 
     // Ping MongoDB to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
