@@ -152,6 +152,30 @@ async function run() {
         res.status(500).send({ message: 'Error updating profile' });
       }
     });
+    //pushing selectedSupervisor id to database
+    app.put('/student_details/:student_id/select-supervisor', async (req, res) => {
+      const studentId = req.params.student_id;
+      const { supervisorId } = req.body;
+
+      try {
+        // Add supervisorId to the selected_supervisors array
+        const result = await studentCollection.updateOne(
+          { student_id: studentId },
+          { $addToSet: { selected_supervisors: supervisorId } }
+        );
+
+        if (result.modifiedCount === 0) {
+          return res.status(404).json({ message: 'Student not found or supervisor already selected.' });
+        }
+
+        // Return the updated student details
+        const updatedStudent = await studentCollection.findOne({ student_id: studentId });
+        res.json(updatedStudent); // Send back the updated student data with selected_supervisors
+      } catch (error) {
+        console.error('Error selecting supervisor:', error);
+        res.status(500).json({ message: 'Error selecting supervisor' });
+      }
+    });
 
 
     //add team member
@@ -176,8 +200,8 @@ async function run() {
         const teamCount = await thesisCollection.countDocuments();
         const newTeamId = `T${teamCount + 1}`;
 
-        const studentIds = [adminStudent.student_id,student.student_id];
-        const studentNames = [adminStudent.name,student.name];
+        const studentIds = [adminStudent.student_id, student.student_id];
+        const studentNames = [adminStudent.name, student.name];
 
         if (student2?.student_id) {
           studentIds.push(student2.student_id);
@@ -235,14 +259,14 @@ async function run() {
       console.log(team, memberId, index);
 
       try {
-        
+
         const teamDocument = await thesisCollection.findOne({ team: team });
 
         if (!teamDocument) {
           return res.status(404).json({ message: "Team not found." });
         }
 
-        
+
         const updateResult = await thesisCollection.updateOne(
           { team: team },
           {
@@ -251,11 +275,11 @@ async function run() {
         );
 
         if (updateResult.modifiedCount > 0) {
-          
+
           if (teamDocument.student_name && index >= 0 && index < teamDocument.student_name.length) {
             teamDocument.student_name.splice(index, 1);
 
-        
+
             await thesisCollection.updateOne(
               { team: team },
               { $set: { student_name: teamDocument.student_name } }
@@ -276,15 +300,15 @@ async function run() {
 
     //find each student_id thesis details 
     app.get('/thesis_details/:studentId', async (req, res) => {
-      const { studentId } = req.params; 
+      const { studentId } = req.params;
 
       try {
-        
+
         const cursor = thesisCollection.find({ student_ids: studentId });
         const result = await cursor.toArray();
 
         if (result.length > 0) {
-          res.send(result); 
+          res.send(result);
         } else {
           res.status(404).json({ message: 'No thesis data found for this student ID.' });
         }
@@ -293,7 +317,28 @@ async function run() {
         res.status(500).json({ message: "Error fetching thesis data." });
       }
     });
+
+    //admin login
+
     
+
+    app.post('/admin_details', async (req, res) => {
+      const { email, password } = req.body;
+      
+      try {
+          const admin = await client.db('ThisisProject_Portal').collection('admin_details').findOne({ email, password });
+          console.log(admin);
+          if (admin) {
+              res.json({ isAdmin: true });
+          } else {
+              res.json({ isAdmin: false });
+          }
+      } catch (error) {
+          console.error("Error checking admin login:", error);
+          res.status(500).json({ error: "Server error" });
+      }
+  });
+  
 
 
     // Ping MongoDB to confirm a successful connection
