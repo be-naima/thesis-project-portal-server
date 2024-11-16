@@ -176,6 +176,30 @@ async function run() {
         res.status(500).send({ message: 'Error updating profile' });
       }
     });
+    //pushing selectedSupervisor id to database
+    app.put('/student_details/:student_id/select-supervisor', async (req, res) => {
+      const studentId = req.params.student_id;
+      const { supervisorId } = req.body;
+
+      try {
+        // Add supervisorId to the selected_supervisors array
+        const result = await studentCollection.updateOne(
+          { student_id: studentId },
+          { $addToSet: { selected_supervisors: supervisorId } }
+        );
+
+        if (result.modifiedCount === 0) {
+          return res.status(404).json({ message: 'Student not found or supervisor already selected.' });
+        }
+
+        // Return the updated student details
+        const updatedStudent = await studentCollection.findOne({ student_id: studentId });
+        res.json(updatedStudent); // Send back the updated student data with selected_supervisors
+      } catch (error) {
+        console.error('Error selecting supervisor:', error);
+        res.status(500).json({ message: 'Error selecting supervisor' });
+      }
+    });
 
     //// Update Proposal Status and Feedback
     app.put('/update_proposal/:team', async (req, res) => {
@@ -417,6 +441,7 @@ async function run() {
         res.status(500).json({ message: "Error fetching thesis data." });
       }
     });
+<<<<<<< HEAD
 
     //find each team thesis details 
     app.get('/proposal_submission/:team', async (req, res) => {
@@ -568,6 +593,31 @@ async function run() {
         res.status(500).json({ error: 'Error submitting or updating Report' });
       }
     });
+=======
+
+    //admin login
+
+    
+
+    app.post('/admin_details', async (req, res) => {
+      const { email, password } = req.body;
+      
+      try {
+          const admin = await client.db('ThisisProject_Portal').collection('admin_details').findOne({ email, password });
+          console.log(admin);
+          if (admin) {
+              res.json({ isAdmin: true });
+          } else {
+              res.json({ isAdmin: false });
+          }
+      } catch (error) {
+          console.error("Error checking admin login:", error);
+          res.status(500).json({ error: "Server error" });
+      }
+  });
+  
+
+>>>>>>> 2b88ab90eaa161bb751521e6950672ab7c68ab86
 
     // Ping MongoDB to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
