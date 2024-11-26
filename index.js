@@ -320,25 +320,69 @@ async function run() {
 
     //admin login
 
-    
+
 
     app.post('/admin_details', async (req, res) => {
       const { email, password } = req.body;
-      
+
       try {
-          const admin = await client.db('ThisisProject_Portal').collection('admin_details').findOne({ email, password });
-          console.log(admin);
-          if (admin) {
-              res.json({ isAdmin: true });
-          } else {
-              res.json({ isAdmin: false });
-          }
+        const admin = await client.db('ThisisProject_Portal').collection('admin_details').findOne({ email, password });
+        console.log(admin);
+        if (admin) {
+          res.json({ isAdmin: true });
+        } else {
+          res.json({ isAdmin: false });
+        }
       } catch (error) {
-          console.error("Error checking admin login:", error);
-          res.status(500).json({ error: "Server error" });
+        console.error("Error checking admin login:", error);
+        res.status(500).json({ error: "Server error" });
+      }
+    });
+
+    //admin is assigning supervisor
+
+    app.patch('/student_details/:student_id/assign-supervisor', async (req, res) => {
+      const studentId = req.params.student_id;
+      const { assignedSupervisor } = req.body;
+  
+      try {
+          const result = await studentCollection.updateOne(
+              { student_id: studentId },
+              { $set: { assignedSupervisor } }
+          );
+  
+          if (result.matchedCount === 0) {
+              return res.status(404).send({ message: 'Student not found' });
+          }
+  
+          res.send({ message: 'Supervisor assigned successfully' });
+      } catch (error) {
+          res.status(500).send({ message: 'Error assigning supervisor', error });
       }
   });
   
+  // Deduct supervisor availability
+  app.patch('/instructor_details/:_id', async (req, res) => {
+      const instructorId = req.params._id;
+      const { availability } = req.body;
+  
+      try {
+        
+          const result = await instructorCollection.updateOne(
+              { _id: instructorId},
+              { $set: { availability } }
+          );
+  
+          if (result.matchedCount === 0) {
+              return res.status(404).send({ message: 'Instructor not found' });
+          }
+  
+          res.send({ message: 'Availability updated successfully' });
+      } catch (error) {
+          res.status(500).send({ message: 'Error updating availability', error });
+      }
+  });
+
 
 
     // Ping MongoDB to confirm a successful connection
