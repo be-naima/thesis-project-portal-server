@@ -61,7 +61,9 @@ async function run() {
 
     const thesisCollection = client.db('ThisisProject_Portal').collection('thesis_details');
 
+    //
 
+    const boardCollection = client.db('ThisisProject_Portal').collection('board_details');
 
     ///Student 
     // Get all student details
@@ -441,7 +443,6 @@ async function run() {
         res.status(500).json({ message: "Error fetching thesis data." });
       }
     });
-<<<<<<< HEAD
 
     //find each team thesis details 
     app.get('/proposal_submission/:team', async (req, res) => {
@@ -470,7 +471,7 @@ async function run() {
       await thesisCollection.updateOne(
         { team: teamName },
         { $set: { proposal_status: "Pending" } }
-    );
+      );
       // Ensure the file is uploaded
       const pdfFilePath = req.file ? req.file.path : null;
       if (!pdfFilePath) {
@@ -530,7 +531,7 @@ async function run() {
       await thesisCollection.updateOne(
         { team: team },
         { $set: { pre_defense_status: "Pending" } }
-    );
+      );
 
       if (!pdfFilePath) {
         return res.status(400).json({ error: 'Please upload a valid PDF file.' });
@@ -566,7 +567,7 @@ async function run() {
       await thesisCollection.updateOne(
         { team: team },
         { $set: { defense_status: "Pending" } }
-    );
+      );
       if (!pdfFilePath) {
         return res.status(400).json({ error: 'Please upload a valid PDF file.' });
       }
@@ -593,31 +594,105 @@ async function run() {
         res.status(500).json({ error: 'Error submitting or updating Report' });
       }
     });
-=======
 
     //admin login
 
-    
+
 
     app.post('/admin_details', async (req, res) => {
       const { email, password } = req.body;
+
+      try {
+        const admin = await client.db('ThisisProject_Portal').collection('admin_details').findOne({ email, password });
+        console.log(admin);
+        if (admin) {
+          res.json({ isAdmin: true });
+        } else {
+          res.json({ isAdmin: false });
+        }
+      } catch (error) {
+        console.error("Error checking admin login:", error);
+        res.status(500).json({ error: "Server error" });
+      }
+    });
+    //////////////////////////////////////////////////////////////////////////
+    app.post("/board_details", async (req, res) => {
+      const { boardName, department, batch, chairman, members, type, date, link, thesis } = req.body;
+
+      try {
+       
+
+        const boardData = {
+          boardName,
+          department,
+          batch,
+          chairman,
+          members,
+          type,
+          date,
+          link,
+          thesis
+        };
+
+        await boardCollection.insertOne(boardData);
+
+        res.status(200).json({ message: "Board data saved successfully" });
+      } catch (error) {
+        console.error("Error saving board data:", error);
+        res.status(500).json({ message: "Error saving board data" });
+      } 
+    });
+
+    app.get('/board_details', async (req, res) => {
+      const cursor = boardCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+
+    app.get('/board_details/:_id', async (req, res) => {
+      const boardId = req.params._id;
       
       try {
-          const admin = await client.db('ThisisProject_Portal').collection('admin_details').findOne({ email, password });
-          console.log(admin);
-          if (admin) {
-              res.json({ isAdmin: true });
-          } else {
-              res.json({ isAdmin: false });
-          }
+        const board = await boardCollection.findOne({ _id: new ObjectId(boardId) });
+        if (board) {
+          res.send(board);
+        } else {
+          res.status(404).send({ message: "board not found" });
+        }
       } catch (error) {
-          console.error("Error checking admin login:", error);
-          res.status(500).json({ error: "Server error" });
+        res.status(500).send({ message: "Error retrieving board details", error });
       }
-  });
-  
+    });
 
->>>>>>> 2b88ab90eaa161bb751521e6950672ab7c68ab86
+
+    
+  
+  app.put("/board_details/:id", async (req, res) => {
+    const { id } = req.params;
+    const { thesis } = req.body;
+    console.log("yes", thesis)
+ 
+    try {
+      const result = await boardCollection.updateOne(
+        { _id: new ObjectId(id) }, // Find the board by ID
+        { $set: { thesis } }   // Update the thesis field
+      );
+ 
+      if (result.modifiedCount === 1) {
+        res.status(200).json({ message: "Board updated successfully" });
+      } else {
+        res.status(404).json({ message: "Board not found" });
+      }
+    } catch (error) {
+      console.error("Error updating board:", error);
+      res.status(500).json({ message: "Error updating board" });
+    }
+ });
+ 
+
+    //////////////////////////////////////////////////////////////////////////
+
 
     // Ping MongoDB to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
