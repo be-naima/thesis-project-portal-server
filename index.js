@@ -435,6 +435,7 @@ async function run() {
 
         if (result.length > 0) {
           res.send(result);
+          console.log(result)
         } else {
           res.status(404).json({ message: 'No thesis data found for this student ID.' });
         }
@@ -467,7 +468,7 @@ async function run() {
 
     // Route to submit proposal
     app.post('/submit_proposal', upload2.single('pdfFile'), async (req, res) => {
-      const { teamName, type, title, abstract, areaOfResearch } = req.body;
+      const { teamName, dept, type, title, abstract, areaOfResearch } = req.body;
       await thesisCollection.updateOne(
         { team: teamName },
         { $set: { proposal_status: "Pending" } }
@@ -488,6 +489,7 @@ async function run() {
         // Prepare updated proposal details
         const updatedTeam = {
           title: title || existingTeam.title,
+          dept: dept || existingTeam.dept,
           abstract: abstract || existingTeam.abstract,
           area_of_research: areaOfResearch || existingTeam.area_of_research,
           proposal: pdfFilePath,
@@ -648,6 +650,7 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
+    
 
 
     app.get('/board_details/:_id', async (req, res) => {
@@ -665,6 +668,23 @@ async function run() {
       }
     });
 
+    app.get('/board_details/thesis/:name', async (req, res) => {
+      const thesisName = req.params.name;
+    
+      try {
+        
+        const board = await boardCollection.findOne({ thesis: { $elemMatch: { $eq: thesisName } } });
+    
+        if (board) {
+          res.send(board);
+        } else {
+          res.status(404).send({ message: "Board not found for the given thesis name" });
+        }
+      } catch (error) {
+        res.status(500).send({ message: "Error retrieving board details", error });
+      }
+    });
+
 
     
   
@@ -675,8 +695,8 @@ async function run() {
  
     try {
       const result = await boardCollection.updateOne(
-        { _id: new ObjectId(id) }, // Find the board by ID
-        { $set: { thesis } }   // Update the thesis field
+        { _id: new ObjectId(id) }, 
+        { $set: { thesis } }   
       );
  
       if (result.modifiedCount === 1) {
