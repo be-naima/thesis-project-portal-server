@@ -445,6 +445,7 @@ async function run() {
 
         if (result.length > 0) {
           res.send(result);
+          console.log(result)
         } else {
           res.status(404).json({ message: 'No thesis data found for this student ID.' });
         }
@@ -477,7 +478,7 @@ async function run() {
 
     // Route to submit proposal
     app.post('/submit_proposal', upload2.single('pdfFile'), async (req, res) => {
-      const { teamName, type, title, abstract, areaOfResearch } = req.body;
+      const { teamName, dept, type, title, abstract, areaOfResearch } = req.body;
       await thesisCollection.updateOne(
         { team: teamName },
         { $set: { proposal_status: "Pending" } }
@@ -498,6 +499,7 @@ async function run() {
         // Prepare updated proposal details
         const updatedTeam = {
           title: title || existingTeam.title,
+          dept: dept || existingTeam.dept,
           abstract: abstract || existingTeam.abstract,
           area_of_research: areaOfResearch || existingTeam.area_of_research,
           proposal: pdfFilePath,
@@ -719,6 +721,7 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
+    
 
 
     app.get('/board_details/:_id', async (req, res) => {
@@ -736,58 +739,31 @@ async function run() {
       }
     });
 
-    // Update Boardstatus endpoint
-    app.post('/update_status', async (req, res) => {
-      try {
-        const { title, type, status } = req.body;
 
-        if (!title || !type || !status) {
-          return res.status(400).json({ error: 'Missing required fields (title, type, status)' });
-        }
-
-
-        const result = await boardCollection.updateOne(
-          { thesis: title },
-          {
-            $set: { [`status.${title}.${type}`]: status } 
-          }
-        );
-
-        if (result.modifiedCount > 0) {
-          res.status(200).json({ message: 'Status updated successfully' });
-        } else {
-          res.status(404).json({ error: 'Thesis not found or status not updated' });
-        }
-      } catch (error) {
-        console.error('Error updating status:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
+    
+  
+  app.put("/board_details/:id", async (req, res) => {
+    const { id } = req.params;
+    const { thesis } = req.body;
+    console.log("yes", thesis)
+ 
+    try {
+      const result = await boardCollection.updateOne(
+        { _id: new ObjectId(id) }, // Find the board by ID
+        { $set: { thesis } }   // Update the thesis field
+      );
+ 
+      if (result.modifiedCount === 1) {
+        res.status(200).json({ message: "Board updated successfully" });
+      } else {
+        res.status(404).json({ message: "Board not found" });
       }
-    });
-
-
-
-    app.put("/board_details/:id", async (req, res) => {
-      const { id } = req.params;
-      const { thesis } = req.body;
-      console.log("yes", thesis)
-
-      try {
-        const result = await boardCollection.updateOne(
-          { _id: new ObjectId(id) }, // Find the board by ID
-          { $set: { thesis } }   // Update the thesis field
-        );
-
-        if (result.modifiedCount === 1) {
-          res.status(200).json({ message: "Board updated successfully" });
-        } else {
-          res.status(404).json({ message: "Board not found" });
-        }
-      } catch (error) {
-        console.error("Error updating board:", error);
-        res.status(500).json({ message: "Error updating board" });
-      }
-    });
-
+    } catch (error) {
+      console.error("Error updating board:", error);
+      res.status(500).json({ message: "Error updating board" });
+    }
+ });
+ 
 
     //////////////////////////////////////////////////////////////////////////
 
