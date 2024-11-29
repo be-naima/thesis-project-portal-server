@@ -763,6 +763,35 @@ async function run() {
       res.status(500).json({ message: "Error updating board" });
     }
  });
+
+ // Update status endpoint
+ app.post('/update_status', async (req, res) => {
+  try {
+    const { title, type, status } = req.body;
+
+    if (!title || !type || !status) {
+      return res.status(400).json({ error: 'Missing required fields (title, type, status)' });
+    }
+
+    const result = await boardCollection.updateOne(
+      { thesis: title },
+      {
+        $set: {
+          [`status.${title}.${type}`]: status,  // Update the specific thesis status within the status object
+        },
+      }
+    );
+
+    if (result.modifiedCount > 0) {
+      res.status(200).json({ message: 'Status updated successfully' });
+    } else {
+      res.status(404).json({ error: 'Thesis not found' });
+    }
+  } catch (error) {
+    console.error('Error updating status:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
  
 
     //////////////////////////////////////////////////////////////////////////
