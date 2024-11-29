@@ -674,7 +674,7 @@ async function run() {
   
       try {
           const result = await instructorCollection.updateOne(
-              { _id: instructorId },
+              { _id: new ObjectId(instructorId) },
               { $set: { availability } }
           );
   
